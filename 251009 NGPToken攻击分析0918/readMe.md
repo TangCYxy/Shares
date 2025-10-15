@@ -7,6 +7,7 @@
 > 🌐 链：BNB Chain  
 > 💰 损失金额：约 $2M  
 > 项目名称: New Gold Protocol
+> News from twitter: ![img_7.png](img_7.png)
 
 # 一句话介绍
 - NGP Token 在上线后，由于多种设计缺陷，被攻击者在一个区块内使用闪电贷完成价格扭曲、绕过限购、获利卖出，最终抽干官方提供的NGP-USDT流动性交易对内的全部USDT资金(约 200 万美元)。涉及到的漏洞和错误至少包括如下:

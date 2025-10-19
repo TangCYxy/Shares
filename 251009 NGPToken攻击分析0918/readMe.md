@@ -96,8 +96,36 @@
 
 
 # 系列后续分享重点—— one step more: in-depth understanding
-- 从交易执行详情可知，黑客实际上是做了2笔交易，目的，完整的执行路径梳理?
-  - ![攻击交易概览](img.png)
+## 从交易执行详情可知，黑客实际上是做了2笔交易
+- ![攻击交易概览](img.png)
+### 黑客为什么会做2笔交易，目的是什么
+- 因为黑客在代码中动态的在计算收益，从而能达到理想的收入预期（最大收益）
+### 黑客的2笔交易重点流程梳理（详细版本）
+- [配合tenderly梳理详情链接](https://dashboard.tenderly.co/tc9926271333/projecttestgaspredictor/tx/0xc2066e0dff1a8a042057387d7356ad7ced76ab90904baa1e0b5ecbc2434df8e1?trace=0.7.1.0.3.7.0.3.1.5.1.5.1.5.1.2.1.2.1.2.6.2)
+### 黑客的2次关键借款（区别于2次SWAP）
+  - 第一次借款1.3亿USDT，但交易revert
+    - 只执行了第一次SWAP就放弃了接下来的执行，因为收益不符合预期
+    - ![img_2.png](img_2.png)
+  - 第二次借款2.1亿USDT，交易ok
+    - 执行了2次SWAP，最终获取到理想的收益
+    - ![img_9.png](img_9.png)
+### 黑客闪电贷借款的途径和服务商
+- 直接借款USDT
+  - moolah协议借出USDT
+  - pancakeSwap中各种V2和和V3的pair借出USDT
+    - 其中一边资产为USDT，如LAF-USDT
+- 间接借款USDT
+  - 从moolah借款BTCB, 在venusBTC协议中里borrow成USDT
+
+### 黑客对于收益预期的模拟计算
+- 在最后一个flashloan借款的回调中，黑客查询了NGPtoken的几个关键rate，并在攻击合约中进行计算和模拟
+  - ![img_10.png](img_10.png)
+  - 其中红框内的各个资产逻辑都可以提前计算，如果不符合预期，就不用往下进一步执行（revert）
+  - 已知victimPair中的NGP和USDT数量，对应的reserve0和reserve1的值，可以精确计算得到一笔swap操作的结果
+  - ![img_11.png](img_11.png)
+
+
+## 其他系列后续问题（to be continued）
 - 黑客的动态收益计算？以及黑客的NGP数量预留，闪电贷借款数量确定？
 - 在不使用pair的spot price的场景下，这种swap场景下应该如何确保价格数据的即时性和准确性，以及抗大幅波动？
 - NGP不应该这样设计和使用fee on transfer功能，在保留设计预期的前提下，最佳实践应该是什么？

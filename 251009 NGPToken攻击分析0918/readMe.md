@@ -102,7 +102,7 @@
 - 因为黑客在代码中动态的在计算收益，从而能达到理想的收入预期（最大收益）
 ### 黑客的2笔交易重点流程梳理（详细版本）
 - [配合tenderly梳理详情链接](https://dashboard.tenderly.co/tc9926271333/projecttestgaspredictor/tx/0xc2066e0dff1a8a042057387d7356ad7ced76ab90904baa1e0b5ecbc2434df8e1?trace=0.7.1.0.3.7.0.3.1.5.1.5.1.5.1.2.1.2.1.2.6.2)
-### 黑客的2次关键借款（区别于2次SWAP）
+### 黑客的2次关键交易（区别于2次SWAP）
   - 第一次借款1.3亿USDT，但交易revert
     - 只执行了第一次SWAP就放弃了接下来的执行，因为收益不符合预期
     - ![img_2.png](img_2.png)

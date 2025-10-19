@@ -6,7 +6,10 @@
 > 
 > 🌐 链：BNB Chain  
 > 💰 损失金额：约 $2M  
-> 项目名称: New Gold Protocol
+> 项目名称: New Gold Protocol 
+> 
+> tx hash: https://bscscan.com/tx/0xc2066e0dff1a8a042057387d7356ad7ced76ab90904baa1e0b5ecbc2434df8e1
+> 
 > News from twitter: ![img_7.png](img_7.png)
 
 # 一句话介绍
@@ -52,11 +55,11 @@
 
 
 # 🕓 整体攻击流程
-![img_2.png](img_2.png)
+![img_3.png](img_3.png)
 
 # 资金流变化（按步骤）
 
-![img_3.png](img_3.png)
+![img_8.png](img_8.png)
 
 # 关键漏洞梳理
 - 黑客的目的是掏空项目方维护的NGP-USDT流动性交易对内的全部USDT，核心思路就是利用AMM的价格计算机制，通过一系列操作将池子中的NGP数量降到足够低，通过AMM机制的极端价格计算逻辑卖出预先准备的NGP获利。

@@ -125,6 +125,82 @@
   - ![img_11.png](img_11.png)
 
 
+## PancakeSwapV2的基本原理梳理，为什么NGP团队的操作能导致NGP Token出现巨大价差
+
+### PancakeSwapV2简介
+- 是AMM领域的top player， 拥有大量的资产锁定，提供去中心化的swap，闪电贷等服务。
+- 要理解NGP团队在PancakeSwap机制上的认知错误，首先需要理解PancakeSwap的原理。
+- 目前仍然具有相当的TVL，有足够的学习必要性
+  - V2的TVL
+  - ![img_13.png](img_13.png)
+  - V3的TVL
+  - ![img_14.png](img_14.png)
+
+### PancakeSwapV2合约架构图
+- ![img_12.png](img_12.png)
+- 可以看到， PancakeV2Swap服务由多个合约构成
+  - PancakeRouter合约负责用户交互，以及方法封装
+  - PancakePair合约负责实际存储交易对的资产
+  - PancakeLibrary合约负责实现一些公共的方法
+
+### 常规swap操作的请求流和资金流
+- ![img_16.png](img_16.png)
+- 可以看到，100USDT在step2就已经发给了Pair合约，但是在step4才call Pair合约的swap方法
+- 这里就引入了Pair合约中的重要的reserve概念。、
+
+
+### Pair合约中的reserve0和reserve1 和 sync机制
+- Pair合约中的2个余额概念
+  - 实际余额：
+    - 对应token的balanceOf(address余额)
+  - 记账余额：
+    - Pair合约里，有2个内部的缓存参数，代表当前合约中的2个token余额（记账）
+    - ![img_17.png](img_17.png)
+      - 每次mint/burn/swap等操作造成余额变更之后，就会调用sync方法把实际余额同步更新到记账余额中
+- 设计目的：
+  - 在最小外部输入依赖的前提下，Pair合约可以可信的计算出自身实际收到的tokenAmountIn
+    - 用户在参数中的输入可能伪造，但转入合约的资产不可伪造
+
+
+### 经典的公式 x * y = k
+- pair中有2个token， token0的数量称为x， token1的数量称为y
+- 为了保持价值恒定，每次swap兑换的前后，x * y 的 k值要相同
+  - 如果填充比例为100 USDT 和 1个 ETH，就可以理解为1个ETH值100USDT，此时k = 100（不含小数）
+  - 如果填充比例被调整为50 USDT 和 1个 ETH，就可以理解为1个ETH只值50USDT了，此时k = 50（不含小数）
+  - **this is the core mistake made by NGP Team**
+
+
+### Pair合约的Swap函数处理流程
+- 核心流程是调用sync函数同步记账余额 和 balanceOf余额之前，需要确保k大于原值，否则会导致资产损失
+- ![img_18.png](img_18.png)
+- ![img_19.png](img_19.png)
+
+### NGP的错误
+- 进一步来看，就是在这个地方错误的调用了sync函数，破坏了pair合约中的k值（reserve0和reserve1），导致价格大幅度变更
+  - ![img_20.png](img_20.png)
+- 实际数据
+  - ![img_21.png](img_21.png)
+  - ![img_22.png](img_22.png)
+- 可以看出来，USDT数量不变，但NGP数量大幅度降低 -> 导致了NGP单价大幅度上升
+  - ![img_23.png](img_23.png)
+
+
+### FeeOnTransfer类token（NGP）和常规swap的异同
+- 在调用pair的swap之前，计算当前实际转入的amountIn，而不是以输入为准
+  - pair合约实际收到的资产可能没有amountIn声明的那么多
+  - ![img_15.png](img_15.png)
+- 
+### 其他：滑点和相关设定
+
+### 其他：流动性挖矿
+
+### 其他：价格查询
+
+### 其他：初始流动性的添加
+
+
+
+
 ## 其他系列后续问题（to be continued）
 - 黑客的动态收益计算？以及黑客的NGP数量预留，闪电贷借款数量确定？
 - 在不使用pair的spot price的场景下，这种swap场景下应该如何确保价格数据的即时性和准确性，以及抗大幅波动？

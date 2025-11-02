@@ -610,6 +610,13 @@ contract PancakeRouter is IPancakeRouter02 {
             );
         }
     }
+    // 以黑客在步骤7（攻击交易2）中用NGP兑换USDT的函数调用参数为例
+    // amountIn = 1365266529700151035275431, amountOutMin = 0, path = ["0xd2…55"]
+    //["0xd2f26200cd524db097cf4ab7cc2e5c38ab6ae5c9","0x55d398326f99059ff775485246999027b3197955"]
+    //, to =
+    //AttackPayload
+    //,
+    //deadline = 1758135745
     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,

@@ -189,16 +189,60 @@
 - 在调用pair的swap之前，计算当前实际转入的amountIn，而不是以输入为准
   - pair合约实际收到的资产可能没有amountIn声明的那么多
   - ![img_15.png](img_15.png)
-- 
-### 其他：滑点和相关设定
 
-### 其他：流动性挖矿
+### Swap相关流程的代码走读
+- 逻辑入口 
+  - RegularSwap: PancakeRouter.swapExactTokensForTokens
+  - FeeOnTransferSwap: PancakeRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens
+- Tips:
+  - 可以支持给定输入数量，得到输出数量，以及 给定输出数量，得到输入数量, 函数命名中的"Exact"
+  - swap时的手续费扣减
+    - 手续费的价值停留在pair上，取回流动性时支付给LP
+  - 多hop Swap时的多次手续费扣减
+    - 后续的版本有针对性的优化。
+- 源代码走读: 
+  - NGP攻击中的参数例子
+    - ![img_26.png](img_26.png)
+  - [PancakeLibrary.sol](./src/amm/PancakeRouter.sol)
+  - [PancakeRouter.sol](./src/amm/PancakeRouter.sol)
+  - [PancakePair.sol](./src/amm/PancakePair.sol)
+
+
+### 其他：滑点和相关设定
+- 略
 
 ### 其他：价格查询
+- 重点：和UniSwapV3版本的模拟执行不同，V2版本直接通过PancakeLibrary的固定公式计算价格
+- ![img_24.png](img_24.png)
+- see [PancakeLibrary.sol](./src/amm/PancakeRouter.sol)
 
-### 其他：初始流动性的添加
+### 其他：流动性挖矿
+- 目的：激励LP充值提供流动性
+- 形式：LP Token
+- 设计上的考量：流动性提供的价值表现形式，单次兑换提取价值，兑换的价值支付给谁？
+- 重点流程：
+  - 在添加流动性的时候，同时向用户给出LP Token
+  - 在移除流动性的时候，回收用户的LP Token，同时给出用户的收益。
 
 
+### 其他：流动性的添加代码走读
+- 逻辑入口
+  - PancakeRouter.addLiquidity()
+- tips:
+  - 添加流动性时，遵循的公式不同
+  - 添加流动性时，实际输入的金额是一个范围
+    - amountInMin < X < amountInDesired
+    - 以单边的形式进行访问和处理
+  - 流动性添加过程中的收益计算
+    - ![img_25.png](img_25.png)
+  - 流动性添加过程中的手续费收取
+    - FeeTo逻辑，将Mint得到的流动性分一部分给
+- 
+
+- 极端场景：
+  - 首次添加流动性
+  - 第二个人进一步添加流动性
+  - 流动性收益的取回（承担token币价波动的代价）
 
 
 ## 其他系列后续问题（to be continued）

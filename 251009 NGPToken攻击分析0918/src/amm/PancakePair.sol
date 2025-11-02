@@ -453,6 +453,7 @@ contract PancakePair is IPancakePair, PancakeERC20 {
     }
 
     // this low-level function should be called from a contract which performs important safety checks
+    // 100USDT兑换USDC的场景下，(amount0Out = 0, amount1Out = 100, to, 0x)
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
         require(amount0Out > 0 || amount1Out > 0, 'Pancake: INSUFFICIENT_OUTPUT_AMOUNT');
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
@@ -466,15 +467,16 @@ contract PancakePair is IPancakePair, PancakeERC20 {
             require(to != _token0 && to != _token1, 'Pancake: INVALID_TO');
             if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
             if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
+            // 可以支持闪电贷的逻辑 -> 闪电贷，直接调用pair.swap()方法，传入有效的data
             if (data.length > 0) IPancakeCallee(to).pancakeCall(msg.sender, amount0Out, amount1Out, data);
             balance0 = IERC20(_token0).balanceOf(address(this));
             balance1 = IERC20(_token1).balanceOf(address(this));
         }
-        uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
-        uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
+        uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0; // amount0In >  = 100USDT
+        uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0; // amount1In = 0
         require(amount0In > 0 || amount1In > 0, 'Pancake: INSUFFICIENT_INPUT_AMOUNT');
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-            uint balance0Adjusted = (balance0.mul(10000).sub(amount0In.mul(25)));
+            uint balance0Adjusted = (balance0.mul(10000).sub(amount0In.mul(25))); // 99.75% Swap的时候的手续费收取 -> k值校验， 新k >= 老k，
             uint balance1Adjusted = (balance1.mul(10000).sub(amount1In.mul(25)));
             require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(10000**2), 'Pancake: K');
         }

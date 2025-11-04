@@ -318,6 +318,10 @@ library PancakeLibrary {
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
         require(amountIn > 0, 'PancakeLibrary: INSUFFICIENT_INPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'PancakeLibrary: INSUFFICIENT_LIQUIDITY');
+        // 0.25%手续费的扣减 100个USDT预期去兑换，实际只按照99.75个USDT计算实际输入 0.25个USDT是作为手续费，停留在了Pair合约上，最终被LP去分享
+        // x * y = k = (x + 𝚫x)(y - 𝚫y)
+        // 整个计算过程，是不依赖任何一个已存在的token，而是一个纯数学的算法
+        // 在兑换发生的时刻，所有的数据是一定的，操作结果也是一定的。
         uint amountInWithFee = amountIn.mul(9975);
         uint numerator = amountInWithFee.mul(reserveOut);
         uint denominator = reserveIn.mul(10000).add(amountInWithFee);
@@ -335,11 +339,14 @@ library PancakeLibrary {
 
     // performs chained getAmountOut calculations on any number of pairs
     function getAmountsOut(address factory, uint amountIn, address[] memory path) internal view returns (uint[] memory amounts) {
-        require(path.length >= 2, 'PancakeLibrary: INVALID_PATH');
+        require(path.length >= 2, 'PancakeLibrary: INVALID_PATH');// 至少要有2个路径
         amounts = new uint[](path.length);
-        amounts[0] = amountIn;
+        amounts[0] = amountIn; // resultOfAVertualSwap => amountIn
+        //  "USDT,USDC",WBNB
         for (uint i; i < path.length - 1; i++) {
+            // 每一对pair进行这样的计算
             (uint reserveIn, uint reserveOut) = getReserves(factory, path[i], path[i + 1]);
+            // amountOut[0] = amountIn
             amounts[i + 1] = getAmountOut(amounts[i], reserveIn, reserveOut);
         }
     }
@@ -597,16 +604,20 @@ contract PancakeRouter is IPancakeRouter02 {
     // **** SWAP ****
     // requires the initial amount to have already been sent to the first pair
     function _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {
+        // USDT, USDC
         for (uint i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
-            (address token0,) = PancakeLibrary.sortTokens(input, output);
-            uint amountOut = amounts[i + 1];
+            (address token0,) = PancakeLibrary.sortTokens(input, output);// USDT token0
+            uint amountOut = amounts[i + 1]; // USDC out expected
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
+            // amount0Out = 0, amount1Out = amountUSDCExpected
             address to = i < path.length - 2 ?
                 PancakeLibrary.pairFor(factory, output, path[i + 2]) :
                 _to;
+            // 如果nextHop还有，就转给下一个pair，否则，转给最终的接受地址to
             IPancakePair(PancakeLibrary.pairFor(factory, input, output)).swap(
                 amount0Out, amount1Out, to, new bytes(0)
+            // 100USDT兑换USDC的场景下，(amount0Out = 0, amount1Out = 100, to, 0x)
             );
         }
     }
@@ -619,16 +630,21 @@ contract PancakeRouter is IPancakeRouter02 {
     //deadline = 1758135745
     function swapExactTokensForTokens(
         uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
+        uint amountOutMin, // 最少能接受的amountOut -> price + 滑点5%
+        address[] calldata path, // 兑换路径（两两兑换，USDT-USDC)(USDT-USDC, USDC-WBNB) -> path = [USDT,USDC,WBNB]
         address to,
-        uint deadline
+        uint deadline //
+    // amount.size = path.size = 2, amounts[1] -> amounts[0] = 前面步骤已经兑换完成的结果作为输入
+    // USDT,USDC,WBNB
+    // amount[2] = [amountIn(virtualSwapAmountUSDTOut), amountUSDCOut, amountWBNBOut]
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
         amounts = PancakeLibrary.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'PancakeRouter: INSUFFICIENT_OUTPUT_AMOUNT');
+        // 把amountIn资金转给pair -> 转入第一hop的资金
         TransferHelper.safeTransferFrom(
             path[0], msg.sender, PancakeLibrary.pairFor(factory, path[0], path[1]), amounts[0]
         );
+        // 实际调用pair的swap方法
         _swap(amounts, path, to);
     }
     function swapTokensForExactTokens(
@@ -725,6 +741,8 @@ contract PancakeRouter is IPancakeRouter02 {
                 (uint reserve0, uint reserve1,) = pair.getReserves();
                 (uint reserveInput, uint reserveOutput) = input == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
                 amountInput = IERC20(input).balanceOf(address(pair)).sub(reserveInput);
+                // 此时，token0已经转过去了，所以此时能明确的计算出来token0的金额差距，FeeOnTransfer的token已经扣掉了原始的手续费了。
+                // 另外，为什么是和reserve记账余额相比，而不是在外面之前记录一个balanceOf -> 对安全性来说，没有区别 -> swap函数内部的后置的乐观k值保证逻辑也是基于reserve记账余额的
                 amountOutput = PancakeLibrary.getAmountOut(amountInput, reserveInput, reserveOutput);
             }
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOutput) : (amountOutput, uint(0));
@@ -742,10 +760,11 @@ contract PancakeRouter is IPancakeRouter02 {
         TransferHelper.safeTransferFrom(
             path[0], msg.sender, PancakeLibrary.pairFor(factory, path[0], path[1]), amountIn
         );
+        // 不管是22，多个token兑换，最终我关注的是，输出token的数量
         uint balanceBefore = IERC20(path[path.length - 1]).balanceOf(to);
         _swapSupportingFeeOnTransferTokens(path, to);
         require(
-            IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin,
+            IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin, // 保证滑点
             'PancakeRouter: INSUFFICIENT_OUTPUT_AMOUNT'
         );
     }

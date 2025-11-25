@@ -3,7 +3,7 @@
 # 攻击总览
 - **事件时间**：2025 年11月初
 - **受影响服务**：BalancerV2 及其多链部署，其他fork项目等
-- **损失规模**：100M+ USD
+- **损失规模**：1亿⬆️美金
 - **直接影响原因**:
   * 机制上允许用户没有任何资产发起Swap操作（实际扣款操作在最后）
   * 通过swap操作触发rounding精度丢失漏洞（roundDown 和 roundUp）  
@@ -53,16 +53,98 @@
 - 在不看代码的情况下，从高维度理解整个攻击, 发生了什么事，有哪些对象被牵扯进入，整体上的攻击流程和重点等。
 
 ## **🟢 Part 2：前置知识储备详解**
-- BalancerV2架构，invariant方案, rounding & Scaling机制等
+### ComposableStablePool的可组合性
+- 某个ComposableStablePool的流动性Token可以作为一个普通token被其他池子当成普通token使用
+  - 由于其特有的可叠加的属性，从金融属性上理解，balancer的模型比其他defi更接近现实世界的各类金融产品。
+  - 其中的对应的流动性份额Token，就叫做对应的BPT，和池子绑定
+    - 如WETH和osETH的兑换池对应的流动性份额token就叫做 WETH/osETH-BPT
+    - 不同的pool里的BPT名字和价格均不同,如wstETH/WETH-BPT
+  - 如图
+    - ![img_4.png](img_4.png)
+- 其他类型的Pool
+  - ![img_16.png](img_16.png)
+  
+### 计算前统一精度的rounding设计
+- 在关键的_swapGivenOut函数中，会统一处理已有的池子balances，以及swap的amount，按scalingFactors统一精度
+  - 首先，像osETH这种rebasingToken, 或者wstETH这种动态兑换比例
+  - 其次，对于USDC这种decimals不足18的token，balancerV2会在计算时将其的amount放大到18参与计算
+  - ![img_12.png](img_12.png)
+- 实际上，本次balancerV2的漏洞本质上也是在于这个scaling缩放过程中，amount被截断导致的。
+  - mulDown ![img_13.png](img_13.png)
+  - ![img_14.png](img_14.png)
+- 此时，被截断的0.98 相比于17本身，就无法再被忽略了
+  - ![img_15.png](img_15.png)
+  
+### invariant D 不变量公式
+- 类似于uniswap的x * y = k, 用于自动化的确定amountIn和amountOut,
+  - 相同的点
+    - 通过公式自动确定in和out
+    - 记账余额不可或缺（用于自动化的确认before和after的balance）
+  - 但仍然有一些区别
+    - 在汇率相近的token兑换中（尤其是稳定币之间），uniswap的公式适用程度就大幅度降低，但stableSwap的表现仍然良好
+    - 复杂度问题
+    - 支持pool中多个token
+- 公式较为复杂，在代码中也有描述，这里可以简单的去理解
+  - D = f(sum(balances), A)
+- 其中，BPT token的价格可以近似的理解为
+  - BPT_price = D / supply
+  - 所以相对于黑客来说, 如果黑客能想在supply不变的场景下，大幅度的降低D，那么BPT的价格也就会大幅度降低。
+### mint/burn操作被隐形的认为是一个特殊的swap
+- 流动性份额token（BPT） In， token0/token1 Out => burn
+- 流动性份额token（BPT） Out， token0/token1 in => mint
+  - 结合之前提到过的可组合性，就能创造无限可能
+- 如图，使用流动性份额BPT（index=1）swap成WETH（index=0），实际上最终走的是burn流程（退出流动性，取回池子中的资产）
+  - ![img_6.png](img_6.png)
+  - ![img_7.png](img_7.png)
+- 最终调用exitSwap
+  - ![img_8.png](img_8.png)
+    
+### internal balance 余额记账设计
+- 在BalancerV2的架构设计中，在Vault合约里，会记录每个Pool内部的池子余额
+- 设计考量
+  - 首先从设计角度来说，balancerV2的Vault集中资金池设计一定是需要一个余额记账机制
+    - 否则无法区各个pool中的各个token余额
+  - 其次，从自动化Swap的公式角度来说，也是一定需要一个上一个状态的余额
+    - 才能判定实际的amountIn和amountOut 
+- 实际存储的余额数据
+  - 每个pool有自己对应的余额结构
+  - 每个pool自己的余额结构包括
+    - 池子A中的，token0/1/n 的余额信息，比如cash数量（可用的余额），managed数量（借出给一些defi服务的，不可用余额）.
+      - ![img_5.png](img_5.png)
+  - 相关代码
+    - ![img_9.png](img_9.png)
+    - ![img_10.png](img_10.png)
+    - 
+### 优秀的数据结构设计
+  - 在swap操作中，通过index直接更新余额
+  - 相比SAFE的owner mapping方案（支持迭代，同时支持用值本身进行查询和更新）
+    - 迭代场景: 获取所有的owner列表
+    - 值查询和替换的场景: 替换ownerA为ownerB
+    - safe的设计
+      - ![img_11.png](img_11.png)
+  - balancerV2 token balance管理的方案，支持迭代，支持用index进行token余额查询
+    - 迭代场景: 计算invariant D这个不变量的时候，需要收集pool中各个token balances（非当前Pool的流动性份额BPT）
+    - 值查询和替换的场景：根据index，更新某个token的余额
+      - BalancerV2的设计
+      - Swaps._processGeneralPoolSwapRequest()
+### 先计算，后统一结算
+- vault合约的设计允许先计算，再统一结算，本身是一个优化体验节省gas的操作，但是在执行前没有校验用户余额进行verify first
+  - **也是本次攻击中隐藏最深的漏洞——设计漏洞，该机制未来可能带来其他严重程度相当的灾害。**
+- ![img_17.png](img_17.png)
+
+### BatchSwap流程
+- 在part3里跟着黑客的操作，一起梳理。
 
 ## **🟣 Part 3：攻击核心梳理**
-- 具体的攻击每个步骤说明，包括黑客的攻击代码梳理
+- 在part 1里我们已经简单提到过了黑客的操作，这里我们就以黑客对于ComposableStablePool(WETH,BPT,osETH)为例
+### step 1: 批量兑换，降低池子里的token
+- 先跟进梳理一次代码
+- 不一次性兑换的原因是可能遇到问题算法问题（手续费），注意选择的givenOut
 
 ## **🟢 Part 4：攻击方案分析（Full Walkthrough）**
 - 方案梳理和比选 + coding
 
 ---
-
 
 # 参考资料
 - [慢雾的分析，较为细致，但也省略了很多细节](https://mp.weixin.qq.com/s/zywPIK08hpy-Ug6rc9Qysw)

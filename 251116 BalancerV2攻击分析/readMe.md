@@ -136,14 +136,69 @@
 - 在part3里跟着黑客的操作，一起梳理。
 
 ## **🟣 Part 3：攻击核心梳理**
-- 在part 1里我们已经简单提到过了黑客的操作，这里我们就以黑客对于ComposableStablePool(WETH,BPT,osETH)为例
-### step 1: 批量兑换，降低池子里的token
-- 先跟进梳理一次代码
-- 不一次性兑换的原因是可能遇到问题算法问题（手续费），注意选择的givenOut
+- 在part 1里我们已经简单提到过了黑客的操作，这里我们就以黑客对于ComposableStablePool的攻击为例(WETH,BPT,osETH)
+
+### batchSwap函数逻辑（简略）
+- ![img_22.png](img_22.png)
+- 
+### 核心的BatchSwap交易拆解
+- batchSwap由120多个子swap组成，分成3个大的part
+  - step 1 大幅度降低池子里的WETH和osETH余额
+    - 黑客“假设自己有大量BPT”
+  - step 2 反复触发漏洞，扩大漏洞影响程度
+    - 将BPT price从接近1:1 降低到 0.0002
+  - step 3 大量购入低价BPT，弥补自己为了完成step1的BPT“欠款”
+    - 主要收益即为过程中剩余的WETH和osETH
+- ![img_19.png](img_19.png)
+
+### step 1: 大幅度降低池子里的WETH和osETH余额
+- 黑客在“假设自己有大量BPT”token的场景下，从Pool中使用BPT大量购入WETH和osETH
+  - 此时池子里就只剩一大堆BPT和少量的WETH和osETH，接近攻击奏效的条件
+  - again，这个机制就有问题，不应该允许第一笔swap的发生。
+- batchSwap的参数
+![img_18.png](img_18.png)
+
+### step 2: 反复触发漏洞，扩大漏洞影响程度
+- 余额变更示例
+- ![img_20.png](img_20.png)
+
+### step 3: 大量购入低价BPT，弥补自己为了完成step1的BPT“欠款”
+- 在step1里为了降低流动性，假设自己有大量的BPT，截止目前，仍然属于“欠款”
+- 构造大量的WETH购买BPT，osETH购买BPT的swap
+  - 仍然不能一次性兑换完，和step1的原因一样
+  - ![img_21.png](img_21.png)
+
+### 跟随黑客的攻击，梳理batchSwap函数涉及到的关键逻辑
+-
 
 ## **🟢 Part 4：攻击方案分析（Full Walkthrough）**
+
 - 方案梳理和比选 + coding
 
+# 其他可以进一步探讨的问题
+## Step1和3中，BPT和WETH(osETH)之间互换，为什么不一次性，要拆成多次？
+- balancerV2中，黑客为什么要分成很多次用BPT Token去购买WETH和osETH，为什么不能一次性处理完毕？
+  - 因为givenOut的场景下，手续费最终是在amountIn中抵扣
+    - 可能导致极端场景下，一次性swap出所有的资产可能导致手续费 + amountIn 超过预期。
+## 为什么第二批swap要兑换这么多次
+- 可以不停得累计攻击收益（BPT price在每次bundle swap后，基于当前BPT price持续降低）
+## 为什么在攻击过程中，WETH也很重要？
+- 
+## 为什么要使用givenOut模式，为什么不能是givenIn？
+- 
+
+## Pool的完整构造流程是什么？
+- balancerV2中，既然PoolId里有pool的地址，那这个pool的完整构造流程是什么？
+## balancerV2中，怎么理解数值的操作应该始终对Pool有利这句话？
+- 在balancerV2中，由于存在scalingFactor对余额和amount进行缩放，一定会有精度损失。
+  - 此时在设计上，精度损失应该让pool获利，而不是用户
+- 类比uniswapV2，
+  - 就是sync方法在大部分场景下，无论怎么单独调用都不会引起K值异常
+    - 假设外部用户手动转入了token0或者token1，再调用sync方法，因为实际上相当于往池子里添加了资产
+      - 此时池子的k值变大（pool不亏），所以这个操作没有安全隐患。
+  - 相对应的，比如NGP攻击，隐患发生的操作实际上是
+    - attacker减少了token0或者token1， 再触发了sync，此时池子的k值减少（pool吃亏），所以才最终造成资损。
+- 
 ---
 
 # 参考资料

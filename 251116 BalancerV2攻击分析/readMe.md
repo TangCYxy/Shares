@@ -209,6 +209,7 @@
   - 调整后，确实合约体积超过限制
     - ComposableStablePool合约的部署模板地址 0x20356663C17D31549d1210379749E2aE36722D8f
     - 其runtimeCode已经接近24KB（48562字节），任何一点轻微修改都将超过限制
+      - another candidate ways: optimize run, ir
     - ![img_24.png](img_24.png)
   - 
 

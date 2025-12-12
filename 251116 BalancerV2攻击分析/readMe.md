@@ -171,9 +171,53 @@
 ### 跟随黑客的攻击，梳理batchSwap函数涉及到的关键逻辑
 -
 
-## **🟢 Part 4：攻击方案分析（Full Walkthrough）**
+## **🟢 Part 4：攻击方案分析和实现（Full Walkthrough）**
 
-- 方案梳理和比选 + coding
+### 攻击方案设计
+- 最终选择折中的“微调ComposableStablePool”方案
+![img_23.png](img_23.png)
+
+### ComposableStablePool的微调Coding
+#### coding方案比选
+- 红色方案:
+  - 一次部署处理多个pool，多次初始化 + 使用
+  - 方便观测和了解balancerV2，但是有一定复杂度。
+- 蓝色方案：
+  - 尽量少改动，但每次都需要重新初始化一个pool合约
+  - 方便实现
+
+#### 红色方案实现拆解
+- 源代码梳理
+  - 通过constructor构造函数初始化pool数据
+    - 需要将构造函数constructor改造为普通的runtime function，这样才可以一次部署多次访问。
+    - 修改后会导致合约体积变大
+  - 较多abstract contract继承关系
+    - 合约体积可能较大，如果体积太大（超过24KB无法部署），可能需要移除一些用不上的contract
+    - ![img_25.png](img_25.png)
+  - 希望动态修改的参数是immutable
+    - 需要变更参数定义，会导致合约体积变大
+    - ![img_26.png](img_26.png)
+  - 移除一些vault的访问限制和注册功能
+    - Pool注册和id获取，以及onSwap的onlyVault限制等。
+    - ![img_27.png](img_27.png)
+- 需要额外自定义的项
+  - 写一个简单的customizedRateProvider，固定返回某个rate比例(for wstETH,osETH)
+  - 写一个简单的factory合约部署ComposableStablePool和rateProvider
+  - 
+- 实际执行时的问题
+  - 调整后，确实合约体积超过限制
+    - ComposableStablePool合约的部署模板地址 0x20356663C17D31549d1210379749E2aE36722D8f
+    - 其runtimeCode已经接近24KB（48562字节），任何一点轻微修改都将超过限制
+    - ![img_24.png](img_24.png)
+  - 
+
+#### 通过红色方案实现攻击逻辑（代码 + 效果图）
+- 参考url
+
+
+
+
+
 
 # 其他可以进一步探讨的问题
 ## Step1和3中，BPT和WETH(osETH)之间互换，为什么不一次性，要拆成多次？

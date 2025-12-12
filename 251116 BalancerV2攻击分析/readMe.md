@@ -177,7 +177,8 @@
 - 最终选择折中的“微调ComposableStablePool”方案
 ![img_23.png](img_23.png)
 
-### ComposableStablePool的微调Coding
+### 自定义ComposableStablePool的代码实现
+![img_28.png](img_28.png)
 #### coding方案比选
 - 红色方案:
   - 一次部署处理多个pool，多次初始化 + 使用

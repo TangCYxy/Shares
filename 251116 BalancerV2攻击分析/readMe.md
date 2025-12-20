@@ -214,7 +214,7 @@
 
 ### 红色方案 -> 自定义composableStablePool代码实现
 - again，背景是只知道balancerV2合约有rounding漏洞，但不懂invariantD值的计算原理，希望有一个calculatorLibrary辅助计算
-  - 详细代码后续会放回视频中
+  - 详细代码后续可以私信获取
 - 实际运行效果图
   - ![img_29.png](img_29.png)
 - tenderly上的对应交易结果

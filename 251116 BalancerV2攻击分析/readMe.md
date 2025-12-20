@@ -211,9 +211,28 @@
     - 其runtimeCode已经接近24KB（48562字节），任何一点轻微修改都将超过限制
       - another candidate ways: optimize run, ir
     - ![img_24.png](img_24.png)
-  - 
 
+### 红色方案 -> 自定义composableStablePool代码实现
+- again，背景是只知道balancerV2合约有rounding漏洞，但不懂invariantD值的计算原理，希望有一个calculatorLibrary辅助计算
+  - 详细代码后续会放回视频中
+- 实际运行效果图
+  - ![img_29.png](img_29.png)
+- tenderly上的对应交易结果
+  - ![img_30.png](img_30.png)
+  - 
+  - ![img_31.png](img_31.png)
+
+- 代码变动详细梳理
+  - 需要从原有BPT合约中读取的数据，用以模拟pool的计算结果，同时也需要新增setter方法
+    - ![img_32.png](img_32.png)
+  - 需要新增的自定义逻辑
+    - ![img_33.png](img_33.png)
+  - 为了减少合约体积需要的处理
+    - ![img_34.png](img_34.png)
+- 
 #### 通过红色方案实现攻击逻辑（代码 + 效果图）
+- 
+  - 
 - 参考url
 
 

@@ -231,9 +231,45 @@
     - ![img_34.png](img_34.png)
 - 
 #### 通过红色方案实现攻击逻辑（代码 + 效果图）
+- 仅供学习交流，请勿用于非法用途
+- 运行效果
+  - 攻击前，payload合约在vault中的internal balances为0
+    - ![img_35.png](img_35.png)
+  - 攻击后，payload合约在vault中凭空得到了大量internal balances
+    - ![img_36.png](img_36.png)
 - 
+- 环境准备
+  - foundry环境准备
+    - 1.5.0-stable
+  - 修改后的ComposableStablePool合约，作为onSwap结果计算器
+    - 修改的重点已经在前面讨论过，不赘述
+    - 可提前拆分交易部署，控制攻击交易的gas消耗。
+  - 本地的现网环境fork
+    - 使用anvil fork一个攻击发生前的ethereum主网状态
+    - rpc url随便找一个能用的，免费的rpc节点
+```shell
+  anvil --fork-url "https://rpc.mevblocker.io" --fork-block-number 23717396 --chain-id 1 --steps-tracing --print-traces -vvvv
+```
+
+- 代码阅读
+  - 整体的代码结构
+    - ![img_37.png](img_37.png)
+  - 实际coding
+    - CustomizedComposableStablePool.sol
+      - 魔改的ComposableStablePool合约
+    - TcPayload.sol
+      - 实际的攻击合约
+    - ComposableStablePool.t.sol
+      - 测试自定义pool的代码
+    - PoolInitAndAttack.t.sol
+      - 攻击payload的test loader和环境准备
+  - 编码过程中的动态验证
+    - 确保单个onSwap的兑换结果跟实际的一致
+      - onSwap
+    - 确保多个swap的结果跟实际的一致
+      - vault.queryBatchSwap()
   - 
-- 参考url
+
 
 
 

@@ -1,0 +1,33 @@
+concurrency = 5
+match_round = 10
+
+default_md_files = [
+  "agent_improvement/from_conversation.md",
+  ".codex/rules/architecture.md",
+  ".codex/rules/coding-style.md",
+  ".codex/rules/java-standards.md"
+]
+
+skills_root = ".codex/skills"
+
+default_skills = [
+  "java-access-service-design"
+]
+
+evidence_dir = "review_evidences"
+
+ignored_paths = [
+  ".codex/",
+  "releases/",
+  "docs/",
+  "references/",
+  "openspec/",
+  "review_evidences/"
+]
+
+max_diff_chars = 120000
+max_context_chars = 120000
+
+codex_command = "codex"
+codex_timeout_seconds = 1200
+record_codex_stderr = false

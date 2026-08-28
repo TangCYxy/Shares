@@ -84,3 +84,9 @@
 ## 
 
 # 常见问题Q & A
+
+# 攻击复现
+- polygon链上发送消息
+- circle attestation获取
+- tenderly或者本地foundry复现
+  - 倾向于前者，可视化好一些
